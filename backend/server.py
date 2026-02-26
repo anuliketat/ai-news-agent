@@ -70,13 +70,25 @@ def _split_telegram_message(text: str) -> list:
 # ---------------------------------------------------------------------------
 @app.on_event("startup")
 async def startup():
-    # Register Telegram webhook if configured
     if TELEGRAM_BOT_TOKEN and BACKEND_URL:
         from agent.telegram_handler import setup_webhook
         webhook_url = f"{BACKEND_URL}/api/telegram/webhook"
         ok = await setup_webhook(webhook_url)
         if ok:
             logger.info(f"Telegram webhook registered: {webhook_url}")
+
+        # Register bot commands so they appear in Telegram's menu
+        import httpx
+        async with httpx.AsyncClient(timeout=10) as client:
+            await client.post(
+                f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/setMyCommands",
+                json={"commands": [
+                    {"command": "refresh", "description": "Check for new updates right now"},
+                    {"command": "status",  "description": "Show last run stats"},
+                    {"command": "help",    "description": "Show all commands"},
+                ]}
+            )
+        logger.info("Telegram bot commands registered")
 
 
 @app.on_event("shutdown")
