@@ -176,12 +176,17 @@ async def telegram_webhook(request: Request):
         await _handle_history(chat_id)
     elif text_lower.startswith("/top") or text_lower == "top":
         await _handle_top(chat_id)
+    elif text_lower in ("/clear", "clear"):
+        await _handle_clear(chat_id)
     elif text_lower.startswith("details "):
         await _handle_details(chat_id, text)
     elif text_lower.startswith("feedback "):
         await _handle_feedback(chat_id, text)
     elif text_lower in ("/start", "/help", "help"):
         await _send_help(chat_id)
+    else:
+        # Everything else → conversational chatbot with web search
+        await _handle_chat_message(chat_id, text)
 
     return {"ok": True}
 
