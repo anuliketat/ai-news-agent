@@ -42,13 +42,12 @@ _RATE_LIMIT_SEC = 3
 
 def _ddg_search_sync(query: str, max_results: int = 5) -> List[Dict]:
     try:
-        from duckduckgo_search import DDGS
+        from ddgs import DDGS
         with DDGS() as ddgs:
             return list(ddgs.text(
                 query,
                 max_results=max_results,
                 region="in-en",
-                safesearch="off",
             ))
     except Exception as e:
         logger.warning(f"DDG search error: {e}")
