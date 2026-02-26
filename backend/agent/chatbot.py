@@ -1,4 +1,4 @@
-"""Conversational chatbot with web search for Telegram."""
+"""Conversational chatbot with multi-query web search and strong result grounding."""
 import asyncio
 import logging
 import os
@@ -14,63 +14,156 @@ HF_TOKEN = os.environ.get("HF_TOKEN", "")
 HF_MODEL = "meta-llama/Llama-3.3-70B-Instruct"
 HF_API_URL = "https://router.huggingface.co/v1/chat/completions"
 
-SYSTEM_PROMPT = """\
-You are a smart personal finance and tech assistant for a specific user. Here is their profile:
-- 30-year-old Data Scientist in Hyderabad (Madhapur), ₹2.3L/month salary
-- Spends on food delivery, travel, dining out, entertainment
-- Primary interest: UPI cashback, credit card rewards & offers (HDFC, ICICI, Axis, Amex, SBI, RuPay)
-- Also interested in: AI/ML/LLM career news, income tax saving, Telangana govt schemes
+# ---------------------------------------------------------------------------
+# System prompt — forces grounding, bans generic responses
+# ---------------------------------------------------------------------------
 
-When answering:
-- Be concise and conversational — this is Telegram, not a blog
-- Use <b>bold</b> for key terms, use bullet points for lists
-- Always cite sources using <a href="URL">Title</a> links when search results are provided
-- Highlight what is directly actionable for THIS user (card name, cashback %, deadline, how to activate)
-- If answer is in the search results, use that. Otherwise use your training knowledge and mention it.
-- Keep responses under 600 words unless user asks for a deep dive
-- Never hallucinate specific cashback numbers — if unsure, say "check the official website"
+SYSTEM_PROMPT = """\
+You are a personal assistant for a specific person. Know them well:
+- 30-year-old Data Scientist, Hyderabad (Madhapur), ₹2.3L/month
+- Regular spends: Swiggy, Zomato, Amazon, flights, hotels, dining, entertainment
+- Cards likely owned: HDFC, ICICI, Axis, possibly Amex or SBI
+- Goals: squeeze every rupee of cashback/rewards, save taxes, grow in AI/ML
+
+━━ MANDATORY RULES — NEVER BREAK THESE ━━
+
+1. EXTRACT FROM SEARCH RESULTS FIRST
+   The search results below contain real, current information.
+   Read each result carefully. Pull out: card names, exact percentages, 
+   platform names, deadlines, caps, eligibility. Use these as your answer.
+
+2. BE BRUTALLY SPECIFIC
+   ❌ Bad: "Some credit cards offer cashback on food delivery."
+   ✅ Good: "HDFC Millennia gives 5% cashback on Swiggy/Zomato (capped ₹1000/month).
+             Axis Flipkart card gives 1.5% unlimited. SBI Cashback gives 5% online."
+
+3. PERSONALIZE TO THIS USER
+   Relate every answer to their actual spending. If they ask about food cashback,
+   mention Swiggy/Zomato specifically. If they ask about travel, mention 
+   flight/hotel platforms they'd use.
+
+4. CITE INLINE
+   When stating a specific fact from search results, add the source name inline:
+   "According to CardInsider, the HDFC Millennia gives..."
+   Don't just dump links — weave them into the answer.
+
+5. ADMIT GAPS
+   If search results don't cover something, say:
+   "The search results don't mention this specifically. Based on general knowledge: ..."
+   Never silently fill gaps with hallucinated numbers.
+
+6. TELEGRAM FORMAT
+   Use <b>bold</b> for card names and key numbers.
+   Use bullet points (•) for comparisons.
+   Max 350 words unless user asks for deep dive.
+   No filler phrases: "It's worth noting", "In conclusion", "As we can see".
 """
 
-# Simple in-memory rate limiter (per chat_id)
-_last_req: Dict[str, float] = {}
-_RATE_LIMIT_SEC = 3
+# ---------------------------------------------------------------------------
+# Intent detection → targeted multi-query search
+# ---------------------------------------------------------------------------
+
+_FINANCE_KW = ["credit card", "cashback", "reward", "upi", "bank", "card", "emi",
+               "hdfc", "icici", "axis", "amex", "sbi", "rupay", "paytm", "gpay",
+               "interest rate", "fd", "loan", "insurance", "invest"]
+_TECH_KW = ["ai", "llm", "ml", "model", "gpt", "claude", "python", "data science",
+            "machine learning", "tool", "framework", "langchain", "agent", "openai",
+            "huggingface", "job", "salary", "interview", "resume"]
+_GOVT_KW = ["tax", "itr", "gst", "income tax", "scheme", "subsidy", "telangana",
+            "hyderabad", "govt", "government", "pib", "rbi", "budget", "rebate"]
+
+
+def _detect_intent(text: str) -> str:
+    t = text.lower()
+    if any(k in t for k in _FINANCE_KW):
+        return "finance"
+    if any(k in t for k in _TECH_KW):
+        return "tech"
+    if any(k in t for k in _GOVT_KW):
+        return "govt"
+    return "general"
+
+
+def _build_queries(user_message: str, intent: str) -> List[str]:
+    """Build 2–3 targeted, specific search queries."""
+    msg = user_message.strip()
+
+    if intent == "finance":
+        return [
+            f"{msg} India 2026",
+            f"best {msg} HDFC ICICI Axis SBI cashback India 2026",
+            f"{msg} site:cardinsider.com OR site:bankbazaar.com OR site:cardexpert.in",
+        ]
+    elif intent == "tech":
+        return [
+            f"{msg} 2026",
+            f"{msg} latest announcement release",
+        ]
+    elif intent == "govt":
+        return [
+            f"{msg} India official 2026",
+            f"{msg} Hyderabad Telangana",
+        ]
+    else:
+        return [
+            f"{msg} India 2026",
+            msg,
+        ]
 
 
 # ---------------------------------------------------------------------------
-# Web search
+# Web search — parallel multi-query with deduplication
 # ---------------------------------------------------------------------------
 
 def _ddg_search_sync(query: str, max_results: int = 5) -> List[Dict]:
     try:
         from ddgs import DDGS
         with DDGS() as ddgs:
-            return list(ddgs.text(
-                query,
-                max_results=max_results,
-                region="in-en",
-            ))
+            return list(ddgs.text(query, max_results=max_results, region="in-en"))
     except Exception as e:
-        logger.warning(f"DDG search error: {e}")
+        logger.warning(f"DDG search error for '{query[:60]}': {e}")
         return []
 
 
-async def search_web(query: str, max_results: int = 5) -> List[Dict]:
-    """Async DuckDuckGo search — returns list of {title, href, body}."""
+async def _search_one(query: str, max_results: int = 5) -> List[Dict]:
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, _ddg_search_sync, query, max_results)
 
 
+async def search_multi(queries: List[str], results_per_query: int = 4) -> List[Dict]:
+    """Run all queries in parallel, deduplicate by URL, return top results."""
+    all_results = await asyncio.gather(
+        *[_search_one(q, results_per_query) for q in queries],
+        return_exceptions=True,
+    )
+    seen_urls = set()
+    merged = []
+    for batch in all_results:
+        if isinstance(batch, list):
+            for r in batch:
+                url = r.get("href", "")
+                if url and url not in seen_urls:
+                    seen_urls.add(url)
+                    merged.append(r)
+    return merged[:10]  # cap at 10 unique results
+
+
 def _format_results(results: List[Dict]) -> str:
     if not results:
-        return ""
-    lines = ["<search_results>"]
+        return "No search results found."
+    lines = [
+        "## SEARCH RESULTS (read carefully — extract specific facts from these)\n"
+    ]
     for i, r in enumerate(results, 1):
+        title = r.get("title", "").strip()
+        url = r.get("href", "").strip()
+        body = r.get("body", "").strip()[:500]
         lines.append(
-            f"{i}. {r.get('title', '')}\n"
-            f"   URL: {r.get('href', '')}\n"
-            f"   {r.get('body', '')[:350]}"
+            f"[{i}] {title}\n"
+            f"    Source: {url}\n"
+            f"    {body}\n"
         )
-    lines.append("</search_results>")
+    lines.append("## END OF SEARCH RESULTS\n")
     return "\n".join(lines)
 
 
@@ -78,11 +171,19 @@ def _format_results(results: List[Dict]) -> str:
 # Conversation history (MongoDB)
 # ---------------------------------------------------------------------------
 
-async def get_history(db, chat_id: str, limit: int = 10) -> List[Dict]:
+async def get_history(db, chat_id: str, limit: int = 8) -> List[Dict]:
     docs = await db.conversations.find(
         {"chat_id": chat_id}, {"_id": 0, "role": 1, "content": 1}
     ).sort("ts", -1).to_list(limit)
-    return [{"role": d["role"], "content": d["content"]} for d in reversed(docs)]
+    # Return chronological (oldest first), strip search context from stored history
+    history = []
+    for d in reversed(docs):
+        content = d["content"]
+        # Remove search results block that was stored (keep only the user question part)
+        content = re.sub(r"\n\n## SEARCH RESULTS.*?## END OF SEARCH RESULTS\n", "", content, flags=re.DOTALL)
+        content = re.sub(r"\n\[Digest Article.*?\n\n", "", content, flags=re.DOTALL)
+        history.append({"role": d["role"], "content": content.strip()})
+    return history
 
 
 async def save_message(db, chat_id: str, role: str, content: str):
@@ -90,7 +191,7 @@ async def save_message(db, chat_id: str, role: str, content: str):
     await db.conversations.insert_one({
         "chat_id": chat_id,
         "role": role,
-        "content": content[:4000],
+        "content": content[:5000],
         "ts": datetime.now(timezone.utc).isoformat(),
     })
     # Prune — keep last 60 messages per chat
@@ -107,34 +208,45 @@ async def clear_history(db, chat_id: str):
 
 
 # ---------------------------------------------------------------------------
-# Markdown → Telegram HTML (Llama sometimes returns markdown)
+# Markdown → Telegram HTML
 # ---------------------------------------------------------------------------
 
 def _md_to_html(text: str) -> str:
-    # Bold: **text** → <b>text</b>
     text = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", text, flags=re.DOTALL)
-    # Italic: *text* → <i>text</i>  (avoid matching **)
     text = re.sub(r"(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)", r"<i>\1</i>", text)
-    # Code: `text` → <code>text</code>
-    text = re.sub(r"`(.+?)`", r"<code>\1</code>", text)
-    # Strip code fences (```...```)
+    text = re.sub(r"`([^`]+)`", r"<code>\1</code>", text)
     text = re.sub(r"```[\s\S]*?```", "", text)
+    # Convert markdown links [text](url) → Telegram HTML
+    text = re.sub(r"\[([^\]]+)\]\((https?://[^\)]+)\)", r'<a href="\2">\1</a>', text)
+    # Unescape HTML entities that might conflict
+    text = text.replace("&", "&amp;").replace("&amp;amp;", "&amp;")
+    # Fix double-encoded entities from the above
+    text = re.sub(r"&amp;(lt|gt|amp|quot);", r"&\1;", text)
     return text.strip()
 
 
 # ---------------------------------------------------------------------------
-# Detect if user references a digest item ("more about item 2", "details 3")
+# Detect digest item reference ("more about item 2", "explain 3")
 # ---------------------------------------------------------------------------
 
 def _extract_item_ref(text: str) -> Optional[int]:
-    m = re.search(r"\b(?:item|number|#|article|point)\s*(\d+)\b", text, re.IGNORECASE)
-    if m:
-        return int(m.group(1))
-    # Plain number at end: "more about 3"
-    m2 = re.search(r"\bmore\s+(?:about|on|details?)\s+(\d+)\b", text, re.IGNORECASE)
-    if m2:
-        return int(m2.group(1))
+    for pattern in [
+        r"\b(?:item|number|#|article|point)\s*(\d+)\b",
+        r"\b(?:more about|explain|tell me about|details? (?:on|of|about))\s+(?:item\s*)?(\d+)\b",
+        r"\b(\d+)(?:st|nd|rd|th)?\s+(?:item|article|point|one)\b",
+    ]:
+        m = re.search(pattern, text, re.IGNORECASE)
+        if m:
+            return int(m.group(1))
     return None
+
+
+# ---------------------------------------------------------------------------
+# Rate limiter
+# ---------------------------------------------------------------------------
+
+_last_req: Dict[str, float] = {}
+_RATE_LIMIT_SEC = 3
 
 
 # ---------------------------------------------------------------------------
@@ -142,61 +254,72 @@ def _extract_item_ref(text: str) -> Optional[int]:
 # ---------------------------------------------------------------------------
 
 async def get_chat_response(db, chat_id: str, user_message: str) -> str:
-    """Full pipeline: web search → history → LLM → save → return HTML response."""
+    """Pipeline: detect intent → multi-query search → LLM with grounding → save."""
 
-    # Rate limit
     now = time.time()
     if now - _last_req.get(chat_id, 0) < _RATE_LIMIT_SEC:
-        return "⏳ One moment — processing your previous message..."
+        return "⏳ Still processing... try again in a moment."
     _last_req[chat_id] = now
 
-    # 1. Build search query
-    search_query = user_message
+    intent = _detect_intent(user_message)
 
-    # 2. Check for "more about item N" — enrich query with digest article title
-    digest_article_context = ""
+    # ── Digest item reference ──────────────────────────────────────────────
+    digest_context = ""
     item_ref = _extract_item_ref(user_message)
     if item_ref:
         latest = await db.digests.find_one(
             {"status": {"$in": ["sent", "pending"]}}, sort=[("created_at", -1)]
         )
         if latest:
-            articles = latest.get("articles", [])
-            if 1 <= item_ref <= len(articles):
-                art = articles[item_ref - 1]
-                title = art.get("title", "")
-                search_query = f"{title} details {art.get('category','')} India 2026"
-                digest_article_context = (
-                    f"\n[Digest Article #{item_ref}]\n"
+            arts = latest.get("articles", [])
+            if 1 <= item_ref <= len(arts):
+                art = arts[item_ref - 1]
+                # Use article title as the primary search seed
+                user_message_for_search = (
+                    f"{art.get('title', user_message)} India 2026 details"
+                )
+                digest_context = (
+                    f"\n## Digest Article #{item_ref} (user is asking about this)\n"
                     f"Title: {art.get('title','')}\n"
-                    f"Summary: {art.get('summary','')}\n"
-                    f"Source: {art.get('url','')}\n"
+                    f"Summary: {art.get('summary','No summary available.')}\n"
+                    f"Source URL: {art.get('url','')}\n"
                     f"Category: {art.get('category','')} | "
                     f"Credibility: {art.get('credibility_score',0)}/100\n"
+                    f"Why it matters: {art.get('why_it_matters','')}\n"
                 )
+            else:
+                user_message_for_search = user_message
+        else:
+            user_message_for_search = user_message
+    else:
+        user_message_for_search = user_message
 
-    # 3. Search web
-    results = await search_web(search_query)
-    search_context = _format_results(results)
+    # ── Multi-query search ─────────────────────────────────────────────────
+    queries = _build_queries(user_message_for_search, intent)
+    logger.info(f"Chat search queries: {queries}")
+    results = await search_multi(queries, results_per_query=4)
+    search_block = _format_results(results)
+    logger.info(f"Chat search: {len(results)} unique results from {len(queries)} queries")
 
-    # 4. Load conversation history
-    history = await get_history(db, chat_id)
+    # ── Conversation history ───────────────────────────────────────────────
+    history = await get_history(db, chat_id, limit=8)
 
-    # 5. Build messages for LLM
+    # ── Build LLM messages ─────────────────────────────────────────────────
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     messages.extend(history)
 
-    user_content = user_message
-    if digest_article_context:
-        user_content += f"\n{digest_article_context}"
-    if search_context:
-        user_content += f"\n\n{search_context}"
+    # User turn: question + search context + digest context
+    user_turn = (
+        f"Question: {user_message}\n\n"
+        f"{search_block}"
+        + (f"\n{digest_context}" if digest_context else "")
+        + "\n\nAnswer based on the search results above. Be specific."
+    )
+    messages.append({"role": "user", "content": user_turn})
 
-    messages.append({"role": "user", "content": user_content})
-
-    # 6. Call LLM
+    # ── LLM call ──────────────────────────────────────────────────────────
     if not HF_TOKEN:
-        return "⚠️ LLM not configured. Set HF_TOKEN in .env."
+        return "⚠️ HF_TOKEN not set. Cannot generate response."
 
     answer = ""
     try:
@@ -211,31 +334,32 @@ async def get_chat_response(db, chat_id: str, user_message: str) -> str:
                     "model": HF_MODEL,
                     "messages": messages,
                     "max_tokens": 900,
-                    "temperature": 0.65,
+                    "temperature": 0.5,   # lower temp = more faithful to search results
                 },
             )
             if resp.status_code == 200:
                 answer = resp.json()["choices"][0]["message"]["content"].strip()
             else:
-                logger.error(f"LLM error {resp.status_code}: {resp.text[:200]}")
-                answer = "Sorry, I couldn't generate a response right now. Try again in a moment."
+                logger.error(f"LLM {resp.status_code}: {resp.text[:200]}")
+                answer = "I couldn't reach the LLM right now. Please try again."
     except Exception as e:
         logger.error(f"Chat LLM error: {e}")
-        answer = "Something went wrong on my end. Please try again."
+        answer = "Something went wrong. Please try again."
 
-    # 7. Convert any markdown to Telegram HTML
+    # ── Post-process ──────────────────────────────────────────────────────
     answer = _md_to_html(answer)
 
-    # 8. Append source links
+    # Append source links (top 3 unique, non-redundant with inline citations)
     if results:
-        sources = "\n\n🔗 <b>Sources:</b>\n" + "\n".join(
-            f'• <a href="{r["href"]}">{r["title"][:70]}</a>'
-            for r in results[:3] if r.get("href")
+        top_sources = results[:4]
+        sources_block = "\n\n🔗 <b>Sources:</b>\n" + "\n".join(
+            f'• <a href="{r["href"]}">{r["title"][:65]}</a>'
+            for r in top_sources if r.get("href")
         )
-        answer += sources
+        answer += sources_block
 
-    # 9. Save to conversation history
-    await save_message(db, chat_id, "user", user_message)
+    # ── Save to history ───────────────────────────────────────────────────
+    await save_message(db, chat_id, "user", user_turn)     # store with search context
     await save_message(db, chat_id, "assistant", answer)
 
     return answer
