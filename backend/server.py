@@ -170,6 +170,10 @@ async def telegram_webhook(request: Request):
         await _handle_refresh(chat_id)
     elif text_lower in ("/status", "status"):
         await _handle_status(chat_id)
+    elif text_lower in ("/history", "history"):
+        await _handle_history(chat_id)
+    elif text_lower.startswith("/top") or text_lower == "top":
+        await _handle_top(chat_id)
     elif text_lower.startswith("details "):
         await _handle_details(chat_id, text)
     elif text_lower.startswith("feedback "):
