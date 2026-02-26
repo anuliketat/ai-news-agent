@@ -248,17 +248,90 @@ async def _handle_feedback(chat_id: str, text: str):
     await send_message(chat_id, f"Thanks! Feedback noted for item {num} 👍")
 
 
+async def _handle_refresh(chat_id: str):
+    """Trigger an on-demand agent run and notify user."""
+    from agent.telegram_handler import send_message
+
+    # Prevent duplicate concurrent runs
+    running = await db.agent_runs.find_one({"status": "running"})
+    if running:
+        elapsed_sec = 0
+        try:
+            from datetime import datetime, timezone
+            started = datetime.fromisoformat(running.get("started_at", ""))
+            elapsed_sec = int((datetime.now(timezone.utc) - started).total_seconds())
+        except Exception:
+            pass
+        await send_message(
+            chat_id,
+            f"⏳ A run is already in progress (started {elapsed_sec}s ago).\n"
+            f"You'll get a digest preview shortly — no need to refresh again."
+        )
+        return
+
+    # Acknowledge immediately
+    await send_message(
+        chat_id,
+        "🔄 <b>Refreshing now...</b>\n"
+        "<i>Fetching latest news from all sources. "
+        "You'll get a preview in ~15–30 seconds.</i>"
+    )
+
+    # Kick off agent run in background
+    run_id = str(uuid.uuid4())
+    await db.agent_runs.insert_one({
+        "run_id": run_id,
+        "status": "running",
+        "started_at": datetime.now(timezone.utc).isoformat(),
+        "triggered_by": "telegram_refresh",
+    })
+
+    import asyncio
+    asyncio.create_task(_run_agent_task(run_id))
+
+
+async def _handle_status(chat_id: str):
+    """Show last run stats and pending digest info."""
+    from agent.telegram_handler import send_message
+
+    last_run = await db.agent_runs.find_one({}, sort=[("started_at", -1)])
+    pending = await db.digests.find_one({"status": "pending"}, sort=[("created_at", -1)])
+    total_articles = await db.articles.count_documents({})
+    total_runs = await db.agent_runs.count_documents({})
+
+    stats = last_run.get("stats", {}) if last_run else {}
+    status_emoji = {"completed": "✅", "running": "⏳", "failed": "❌"}.get(
+        last_run.get("status", ""), "❓"
+    ) if last_run else "❓"
+
+    msg = (
+        "<b>📊 Agent Status</b>\n\n"
+        f"{status_emoji} <b>Last run:</b> {last_run.get('status', 'N/A') if last_run else 'Never'}\n"
+        f"   Fetched: {stats.get('total_fetched', 0)} articles\n"
+        f"   New (after dedup): {stats.get('after_dedup', 0)}\n"
+        f"   Verified: {stats.get('verified_after_xref', stats.get('verified', 0))}\n"
+        f"   Actionable sent: {stats.get('actionable', 0)}\n"
+        f"   Translated: {stats.get('translated', 0)}\n\n"
+        f"📬 <b>Pending digest:</b> {'Yes — reply YES to receive' if pending else 'None'}\n"
+        f"🗄 <b>DB:</b> {total_articles} articles stored | {total_runs} total runs\n\n"
+        f"<i>Send /refresh to check for new updates now</i>"
+    )
+    await send_message(chat_id, msg)
+
+
 async def _send_help(chat_id: str):
     from agent.telegram_handler import send_message
     help_text = (
         "<b>AI News Agent — Commands</b>\n\n"
-        "📬 When you get a digest preview:\n"
-        "  • Reply <b>YES</b> — Receive full digest\n"
+        "🔄 <b>/refresh</b> — Check for new updates right now\n"
+        "📊 <b>/status</b> — Show last run stats &amp; pending digest\n\n"
+        "📬 <b>When you get a digest preview:</b>\n"
+        "  • Reply <b>YES</b> — Receive the full digest\n"
         "  • Reply <b>NO</b> — Skip this digest\n\n"
-        "📖 After receiving digest:\n"
+        "📖 <b>After receiving digest:</b>\n"
         "  • <b>details 1</b> — Full content of item 1\n"
         "  • <b>feedback 2 too generic</b> — Submit feedback\n\n"
-        "ℹ️ Runs automatically at 9 AM and 6 PM IST"
+        "⏰ <i>Runs automatically at 9 AM and 6 PM IST</i>"
     )
     await send_message(chat_id, help_text)
 
