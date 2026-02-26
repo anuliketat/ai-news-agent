@@ -277,7 +277,6 @@ async def _handle_refresh(chat_id: str):
     if running:
         elapsed_sec = 0
         try:
-            from datetime import datetime, timezone
             started = datetime.fromisoformat(running.get("started_at", ""))
             elapsed_sec = int((datetime.now(timezone.utc) - started).total_seconds())
         except Exception:
