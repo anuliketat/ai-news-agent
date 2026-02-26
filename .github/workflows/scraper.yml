@@ -1,0 +1,36 @@
+name: AI News Agent Scheduler
+
+on:
+  schedule:
+    # 9:00 AM IST = 03:30 UTC
+    - cron: "30 3 * * *"
+    # 6:00 PM IST = 12:30 UTC
+    - cron: "30 12 * * *"
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Manual trigger reason"
+        required: false
+        default: "Manual run"
+
+jobs:
+  trigger-agent:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Trigger News Agent Run
+        run: |
+          echo "Triggering agent run at $(date -u '+%Y-%m-%d %H:%M UTC')"
+          HTTP_STATUS=$(curl -s -o /tmp/response.json -w "%{http_code}" \
+            -X POST \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ secrets.AGENT_SECRET_KEY }}" \
+            "${{ secrets.AGENT_URL }}/api/agent/trigger")
+          
+          echo "Response: $(cat /tmp/response.json)"
+          
+          if [ "$HTTP_STATUS" -ne 200 ]; then
+            echo "ERROR: Agent trigger failed with HTTP $HTTP_STATUS"
+            exit 1
+          fi
+          echo "Agent triggered successfully"

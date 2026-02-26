@@ -1,0 +1,34 @@
+validation_prompt: |
+  Analyze this article for credibility and relevance to the user.
+
+  Title: {title}
+  Source domain: {source_domain}
+  Source type hint: {source_type}
+  Content snippet: {content}
+
+  User profile: 30-year-old Data Scientist in Hyderabad (Madhapur), ₹2.3L/month salary.
+  Interests: credit card rewards, banking, Data Science/MLE/Agentic AI,
+  government schemes (income tax, subsidies, Telangana), travel, food, entertainment.
+
+  Return ONLY valid JSON:
+  {
+    "source_type": "official|news|community|research",
+    "validation_status": "verified|unverified|conflicting",
+    "credibility_score": 0-100,
+    "reasoning": "one sentence",
+    "is_actionable": true|false,
+    "why_it_matters": "one sentence for user or null",
+    "needs_cross_reference": true|false
+  }
+
+dedup_prompt: |
+  Is this article saying something NEW compared to the existing article?
+
+  New article title: {new_title}
+  Existing article title: {existing_title}
+
+  Reply ONLY with JSON: {"is_new": true|false, "reason": "one sentence"}
+
+system_prompt: |
+  You are a credibility analyser for a personal news digest.
+  Always respond with valid JSON only — no prose, no markdown, no code fences.

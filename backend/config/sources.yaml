@@ -1,0 +1,84 @@
+sources:
+  finance:
+    - name: Economic Times
+      url: https://economictimes.indiatimes.com/rssfeedsdefault.cms
+      domain: economictimes.com
+      type: news
+      credibility_tier: 2
+    - name: Moneycontrol Business
+      url: https://www.moneycontrol.com/rss/business.xml
+      domain: moneycontrol.com
+      type: news
+      credibility_tier: 2
+    - name: Mint Money
+      url: https://www.livemint.com/rss/money
+      domain: livemint.com
+      type: news
+      credibility_tier: 2
+    - name: NDTV Profit
+      url: https://feeds.feedburner.com/ndtvprofit-latest
+      domain: ndtv.com
+      type: news
+      credibility_tier: 2
+
+  tech:
+    - name: ArXiv CS.AI
+      url: https://arxiv.org/rss/cs.AI
+      domain: arxiv.org
+      type: research
+      credibility_tier: 1
+    - name: HuggingFace Blog
+      url: https://huggingface.co/blog/feed.xml
+      domain: huggingface.co
+      type: official
+      credibility_tier: 1
+    - name: TechCrunch
+      url: https://techcrunch.com/feed/
+      domain: techcrunch.com
+      type: news
+      credibility_tier: 2
+    - name: VentureBeat AI
+      url: https://venturebeat.com/feed/
+      domain: venturebeat.com
+      type: news
+      credibility_tier: 2
+    - name: Hacker News
+      url: https://news.ycombinator.com/
+      domain: news.ycombinator.com
+      type: community
+      credibility_tier: 3
+
+  govt:
+    - name: PIB India
+      url: https://pib.gov.in/RssMain.aspx?ModId=6&Lang=1&Regid=3
+      domain: pib.gov.in
+      type: official
+      credibility_tier: 1
+    - name: The Hindu National
+      url: https://www.thehindu.com/news/national/feeder/default.rss
+      domain: thehindu.com
+      type: news
+      credibility_tier: 2
+    - name: Indian Express India
+      url: https://indianexpress.com/section/india/feed/
+      domain: indianexpress.com
+      type: news
+      credibility_tier: 2
+
+credibility_tiers:
+  1:
+    description: "Official sources (govt, bank, research)"
+    score_range: [90, 100]
+    status: verified
+  2:
+    description: "Established news outlets"
+    score_range: [70, 85]
+    status: unverified
+  3:
+    description: "Community / aggregators"
+    score_range: [40, 65]
+    status: unverified
+  4:
+    description: "Unverified social media / leaks"
+    score_range: [10, 35]
+    status: unverified

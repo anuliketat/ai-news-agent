@@ -1,0 +1,45 @@
+user:
+  age: 30
+  status: married
+  location:
+    city: Hyderabad
+    area: Madhapur
+    state: Telangana
+
+  profession:
+    role: Data Scientist
+    monthly_salary_inr: 230000
+    interests:
+      - Data Science
+      - Machine Learning Engineering
+      - AIOps
+      - Agentic AI
+      - LLM tools and frameworks
+
+  spending_habits:
+    - travel
+    - food delivery
+    - dining out
+    - entertainment
+    - experiences
+
+  financial_goals:
+    - credit card rewards optimisation
+    - cost-saving on everyday spends
+    - awareness of banking schemes and offers
+    - tax saving under new/old regime
+
+  govt_relevance:
+    - income tax rebates
+    - Telangana / Hyderabad state schemes
+    - central government subsidies
+    - travel policies affecting domestic/international trips
+
+  digest_preferences:
+    max_items: 15
+    min_credibility_score: 50
+    skip_conflicting: true
+    preferred_categories:
+      - finance
+      - tech
+      - govt
