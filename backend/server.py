@@ -342,11 +342,119 @@ async def _handle_status(chat_id: str):
     await send_message(chat_id, msg)
 
 
+async def _handle_history(chat_id: str):
+    """Show last 7 digest runs with date, count, and status."""
+    from agent.telegram_handler import send_message
+
+    digests = await db.digests.find(
+        {}, {"digest_text": 0}
+    ).sort("created_at", -1).to_list(7)
+
+    if not digests:
+        await send_message(chat_id, "No digest history yet. Send /refresh to run now!")
+        return
+
+    STATUS_ICON = {"sent": "✅", "pending": "📬", "rejected": "🚫", "skipped": "⏭"}
+    lines = ["<b>📜 Digest History (last 7 runs)</b>\n"]
+
+    for i, d in enumerate(digests, 1):
+        created = d.get("created_at", "")
+        try:
+            dt = datetime.fromisoformat(created)
+            # Convert to IST (+5:30)
+            from datetime import timedelta
+            ist = dt + timedelta(hours=5, minutes=30)
+            date_str = ist.strftime("%b %d, %I:%M %p IST")
+        except Exception:
+            date_str = created[:16]
+
+        stats = d.get("stats", {})
+        articles = d.get("articles", [])
+        verified = stats.get("verified_after_xref", stats.get("verified", 0))
+        total = len(articles)
+        status = d.get("status", "unknown")
+        icon = STATUS_ICON.get(status, "❓")
+
+        lines.append(
+            f"{i}. <b>{date_str}</b> — {total} items ({verified} verified) {icon}"
+        )
+
+    lines.append("\n<i>Send /top to get today's best articles</i>")
+    await send_message(chat_id, "\n".join(lines))
+
+
+async def _handle_top(chat_id: str):
+    """Re-send top 5 most credible articles from the latest digest."""
+    from agent.telegram_handler import send_message
+    from agent.nodes.digest import STATUS_EMOJI, STATUS_LABEL
+
+    # Get the most recent sent or pending digest
+    latest = await db.digests.find_one(
+        {"status": {"$in": ["sent", "pending"]}},
+        sort=[("created_at", -1)]
+    )
+
+    if not latest:
+        await send_message(
+            chat_id,
+            "No digest available yet. Send /refresh to fetch the latest news!"
+        )
+        return
+
+    articles = latest.get("articles", [])
+    if not articles:
+        await send_message(chat_id, "No articles in the latest digest.")
+        return
+
+    # Sort by credibility and take top 5
+    top5 = sorted(articles, key=lambda x: x.get("credibility_score", 0), reverse=True)[:5]
+
+    created = latest.get("created_at", "")
+    try:
+        from datetime import timedelta
+        dt = datetime.fromisoformat(created)
+        ist = dt + timedelta(hours=5, minutes=30)
+        date_str = ist.strftime("%b %d, %I:%M %p IST")
+    except Exception:
+        date_str = "Latest"
+
+    CATEGORY_EMOJI = {"finance": "💳", "tech": "🤖", "govt": "🏛"}
+    lines = [f"<b>⭐ Top 5 Articles — {date_str}</b>\n"]
+
+    for i, art in enumerate(top5, 1):
+        status = art.get("validation_status", "unverified")
+        score = art.get("credibility_score", 0)
+        cat = art.get("category", "tech")
+        title = art.get("title", "Untitled")
+        summary = art.get("summary", "").strip()
+        why = art.get("why_it_matters", "")
+        url = art.get("url", "")
+        translated = art.get("translated", False)
+        lang_tag = f" <i>[{art.get('original_language','?')}→en]</i>" if translated else ""
+
+        link = f'<a href="{url}">Read</a>' if url else ""
+        summary_line = f"\n   📝 <i>{summary[:180]}</i>" if summary else ""
+        why_line = f"\n   📌 {why}" if why else ""
+
+        lines.append(
+            f"{i}. {CATEGORY_EMOJI.get(cat,'📰')} <b>{title}</b>{lang_tag}\n"
+            f"   {STATUS_EMOJI.get(status,'⚠️')} {STATUS_LABEL.get(status,'Unverified')} · {score}/100"
+            f"{summary_line}"
+            f"{why_line}\n"
+            f"   🔗 {link}"
+        )
+
+    lines.append("\n<i>Send /history to browse all past digests</i>")
+    await send_message(chat_id, "\n\n".join(lines))
+
+
 async def _send_help(chat_id: str):
     from agent.telegram_handler import send_message
     help_text = (
         "<b>AI News Agent — Commands</b>\n\n"
         "🔄 <b>/refresh</b> — Check for new updates right now\n"
+        "⭐ <b>/top</b> — Re-send today's top 5 most credible articles\n"
+        "📜 <b>/history</b> — Browse last 7 digest runs\n"
         "📊 <b>/status</b> — Show last run stats &amp; pending digest\n\n"
         "📬 <b>When you get a digest preview:</b>\n"
         "  • Reply <b>YES</b> — Receive the full digest\n"
