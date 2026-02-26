@@ -83,10 +83,11 @@ async def startup():
             await client.post(
                 f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/setMyCommands",
                 json={"commands": [
-                    {"command": "refresh", "description": "Check for new updates right now"},
-                    {"command": "top",     "description": "Today's top 5 most credible articles"},
+                    {"command": "refresh", "description": "Fetch new updates right now"},
+                    {"command": "top",     "description": "Today's top 5 credible articles"},
                     {"command": "history", "description": "Browse last 7 digest runs"},
-                    {"command": "status",  "description": "Show last run stats"},
+                    {"command": "status",  "description": "Last run stats"},
+                    {"command": "clear",   "description": "Clear chat history, start fresh"},
                     {"command": "help",    "description": "Show all commands"},
                 ]}
             )
