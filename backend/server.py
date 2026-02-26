@@ -84,6 +84,8 @@ async def startup():
                 f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/setMyCommands",
                 json={"commands": [
                     {"command": "refresh", "description": "Check for new updates right now"},
+                    {"command": "top",     "description": "Today's top 5 most credible articles"},
+                    {"command": "history", "description": "Browse last 7 digest runs"},
                     {"command": "status",  "description": "Show last run stats"},
                     {"command": "help",    "description": "Show all commands"},
                 ]}
