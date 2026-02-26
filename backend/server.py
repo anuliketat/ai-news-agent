@@ -140,18 +140,22 @@ async def telegram_webhook(request: Request):
         return {"ok": True}
 
     text_upper = text.upper()
+    text_lower = text.lower()
 
     if text_upper == "YES":
         await _handle_approval(chat_id)
     elif text_upper in ("NO", "SKIP"):
         await _handle_rejection(chat_id)
-    elif text_lower := text.lower():
-        if text_lower.startswith("details "):
-            await _handle_details(chat_id, text)
-        elif text_lower.startswith("feedback "):
-            await _handle_feedback(chat_id, text)
-        elif text_lower in ("/start", "/help"):
-            await _send_help(chat_id)
+    elif text_lower in ("/refresh", "refresh"):
+        await _handle_refresh(chat_id)
+    elif text_lower in ("/status", "status"):
+        await _handle_status(chat_id)
+    elif text_lower.startswith("details "):
+        await _handle_details(chat_id, text)
+    elif text_lower.startswith("feedback "):
+        await _handle_feedback(chat_id, text)
+    elif text_lower in ("/start", "/help", "help"):
+        await _send_help(chat_id)
 
     return {"ok": True}
 
