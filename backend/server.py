@@ -455,21 +455,59 @@ async def _handle_top(chat_id: str):
     await send_message(chat_id, "\n\n".join(lines))
 
 
+async def _handle_clear(chat_id: str):
+    """Clear the conversation history for this chat."""
+    from agent.telegram_handler import send_message
+    from agent.chatbot import clear_history
+
+    await clear_history(db, chat_id)
+    await send_message(
+        chat_id,
+        "🗑 <b>Conversation cleared.</b>\nStarting fresh! Ask me anything about finance, credit cards, AI/ML, or government schemes."
+    )
+
+
+async def _handle_chat_message(chat_id: str, text: str):
+    """Route any free-form message to the conversational chatbot with web search."""
+    from agent.telegram_handler import send_message
+    from agent.chatbot import get_chat_response
+    import httpx
+
+    # Send typing indicator while generating response
+    if TELEGRAM_BOT_TOKEN:
+        try:
+            async with httpx.AsyncClient(timeout=5) as client:
+                await client.post(
+                    f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendChatAction",
+                    json={"chat_id": int(chat_id), "action": "typing"},
+                )
+        except Exception:
+            pass
+
+    response = await get_chat_response(db, chat_id, text)
+    await send_message(chat_id, response)
+
+
 async def _send_help(chat_id: str):
     from agent.telegram_handler import send_message
     help_text = (
         "<b>AI News Agent — Commands</b>\n\n"
-        "🔄 <b>/refresh</b> — Check for new updates right now\n"
-        "⭐ <b>/top</b> — Re-send today's top 5 most credible articles\n"
+        "🔄 <b>/refresh</b> — Fetch new updates right now\n"
+        "⭐ <b>/top</b> — Today's top 5 most credible articles\n"
         "📜 <b>/history</b> — Browse last 7 digest runs\n"
-        "📊 <b>/status</b> — Show last run stats &amp; pending digest\n\n"
-        "📬 <b>When you get a digest preview:</b>\n"
-        "  • Reply <b>YES</b> — Receive the full digest\n"
-        "  • Reply <b>NO</b> — Skip this digest\n\n"
-        "📖 <b>After receiving digest:</b>\n"
+        "📊 <b>/status</b> — Last run stats &amp; pending digest\n"
+        "🗑 <b>/clear</b> — Clear chat history (start fresh)\n\n"
+        "📬 <b>Digest approval:</b>\n"
+        "  • <b>YES</b> — Receive the full digest\n"
+        "  • <b>NO</b> — Skip this digest\n\n"
+        "📖 <b>Digest details:</b>\n"
         "  • <b>details 1</b> — Full content of item 1\n"
         "  • <b>feedback 2 too generic</b> — Submit feedback\n\n"
-        "⏰ <i>Runs automatically at 9 AM and 6 PM IST</i>"
+        "💬 <b>Or just chat!</b> Ask anything:\n"
+        "  <i>\"Which credit card is best for Swiggy?\"</i>\n"
+        "  <i>\"Explain more about item 3\"</i>\n"
+        "  <i>\"Latest AI tools for data scientists\"</i>\n\n"
+        "⏰ <i>Auto-runs at 9 AM and 6 PM IST</i>"
     )
     await send_message(chat_id, help_text)
 
