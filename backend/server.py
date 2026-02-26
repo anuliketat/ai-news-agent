@@ -99,6 +99,14 @@ async def _run_agent_task(run_id: str):
                       "updated_at": datetime.now(timezone.utc).isoformat()}},
             upsert=True,
         )
+        # Notify via Telegram if this was a manual refresh
+        run_doc = await db.agent_runs.find_one({"run_id": run_id})
+        if run_doc and run_doc.get("triggered_by") == "telegram_refresh" and TELEGRAM_CHAT_ID:
+            from agent.telegram_handler import send_message
+            await send_message(
+                TELEGRAM_CHAT_ID,
+                "❌ <b>Refresh failed.</b> Please try again or wait for the next scheduled run."
+            )
 
 
 @api_router.post("/agent/trigger")
