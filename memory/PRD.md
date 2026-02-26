@@ -60,6 +60,10 @@ END
 - [x] **Auto-Translation**: langdetect + deep_translator; non-English articles (Hindi/Marathi/Telugu PIB articles etc.) auto-translated. [Auto-translated] tag shown in digest.
 - [x] **UPI/CC Priority Boost**: Credit card/UPI articles sorted higher in digest (up to +30 score boost)
 - [x] **Message Splitting**: Digest split at paragraph boundaries ≤3800 chars (handles Telegram 4096 limit)
+- [x] **/refresh command**: Triggers on-demand agent run from Telegram; shows "🔄 Refreshing..." ack, guards against duplicate concurrent runs
+- [x] **/status command**: Shows last run stats (fetched/verified/actionable/translated), pending digest status, total DB articles
+- [x] **Bot command menu**: /refresh, /status, /help registered in Telegram's native command menu
+- [x] **Error notifications**: Failed refresh runs notify user via Telegram
 
 ## API Endpoints
 - `POST /api/agent/trigger` — Trigger agent run (requires Bearer auth)
