@@ -63,7 +63,8 @@ END
 - [x] **/refresh command**: Triggers on-demand agent run from Telegram; shows "🔄 Refreshing..." ack, guards against duplicate concurrent runs
 - [x] **/status command**: Shows last run stats (fetched/verified/actionable/translated), pending digest status, total DB articles
 - [x] **Bot command menu**: /refresh, /status, /help registered in Telegram's native command menu
-- [x] **Error notifications**: Failed refresh runs notify user via Telegram
+- [x] **/history command**: Lists last 7 digest runs — date (IST), item count, verified count, status icon (✅sent/📬pending/🚫rejected)
+- [x] **/top command**: Re-sends top 5 most credible articles from latest digest with full summary + why_it_matters
 
 ## API Endpoints
 - `POST /api/agent/trigger` — Trigger agent run (requires Bearer auth)
