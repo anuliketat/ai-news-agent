@@ -118,7 +118,7 @@ def _build_queries(user_message: str, intent: str) -> List[str]:
 def _ddg_search_sync(query: str, max_results: int = 5) -> List[Dict]:
     try:
         from ddgs import DDGS
-        with DDGS() as ddgs:
+        with DDGS(timeout=12) as ddgs:
             return list(ddgs.text(query, max_results=max_results, region="in-en"))
     except Exception as e:
         logger.warning(f"DDG search error for '{query[:60]}': {e}")
@@ -127,7 +127,14 @@ def _ddg_search_sync(query: str, max_results: int = 5) -> List[Dict]:
 
 async def _search_one(query: str, max_results: int = 5) -> List[Dict]:
     loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(None, _ddg_search_sync, query, max_results)
+    try:
+        return await asyncio.wait_for(
+            loop.run_in_executor(None, _ddg_search_sync, query, max_results),
+            timeout=20.0,
+        )
+    except asyncio.TimeoutError:
+        logger.warning(f"DDG search timed out: {query[:60]}")
+        return []
 
 
 async def search_multi(queries: List[str], results_per_query: int = 4) -> List[Dict]:
