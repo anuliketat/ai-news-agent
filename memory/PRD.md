@@ -112,22 +112,24 @@ DB_NAME=news_agent_db
 
 ### P0 (Critical - needed for production)
 - [x] ~~Add HF_TOKEN to enable real LLM validation~~ — DONE (router.huggingface.co)
+- [x] ~~Fix GIL-blocking chatbot~~ — DONE (replaced ddgs/primp with httpx)
 - [ ] Test GitHub Actions scheduling with `AGENT_URL` and `AGENT_SECRET_KEY` secrets
 
 ### P1 (High value)
 - [ ] Add Reddit async scraping (asyncpraw) for r/IndiaInvestments, r/CreditCardsIndia, r/MachineLearning
 - [ ] Add RBI official RSS feed when URL is confirmed working
 - [ ] Add CardInsider.com scraping for credit card offers
-- [ ] LLM-generated summaries once HF_TOKEN is set (currently rule-based)
 - [ ] User feedback loop: store feedback → use in future scoring
-- [ ] /stats Telegram command: show past week's digest stats
+- [ ] Improve web search grounding — DDG returns 0 results in server environment (bot detection)
+  - Options: Use Brave Search API (free tier), SerpAPI, or Google Custom Search API
 
 ### P2 (Nice to have)
+- [ ] `/search <keyword>` improved UI (pagination, date filters)  ← NEW
+- [ ] Voice message support (user sends voice → bot transcribes + answers)  ← NEW
 - [ ] Playwright-based scraping for JS-rendered pages (bank websites)
 - [ ] Conflicting info alert: immediate Telegram notification for conflicting reports
-- [ ] Preference model trained on user feedback
 - [ ] Export digest as PDF or email summary
-- [ ] Per-source credibility tracking (permanently low-credibility sources blacklisted)
+- [ ] Per-source credibility tracking
 
 ## Performance (measured Feb 26, 2026)
 - Scraping: ~3 seconds for 14 sources (async parallel)
