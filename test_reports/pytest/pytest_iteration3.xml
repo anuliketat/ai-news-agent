@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="8" skipped="0" tests="17" time="0.706" timestamp="2026-02-27T05:12:26.966110+00:00" hostname="agent-env-a51140a9-3f0a-4729-bfb5-f7e54f3ca2fc"><testcase classname="backend.tests.test_iteration3.TestServerHealth" name="test_root_endpoint" time="0.326" /><testcase classname="backend.tests.test_iteration3.TestServerHealth" name="test_agent_status" time="0.068" /><testcase classname="backend.tests.test_iteration3.TestWebhookImmediate" name="test_webhook_returns_ok_for_help" time="0.000"><failure message="ValueError: invalid literal for int() with base 10: '&quot;805540771&quot;'">backend/tests/test_iteration3.py:60: in test_webhook_returns_ok_for_help
+    resp, elapsed = self._send_webhook(session, "/help")
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/test_iteration3.py:50: in _send_webhook
+    "chat": {"id": int(TELEGRAM_CHAT_ID)},
+                   ^^^^^^^^^^^^^^^^^^^^^
+E   ValueError: invalid literal for int() with base 10: '"805540771"'</failure></testcase><testcase classname="backend.tests.test_iteration3.TestWebhookImmediate" name="test_webhook_returns_ok_immediately_for_chat" time="0.000"><failure message="ValueError: invalid literal for int() with base 10: '&quot;805540771&quot;'">backend/tests/test_iteration3.py:67: in test_webhook_returns_ok_immediately_for_chat
+    resp, elapsed = self._send_webhook(session, "What credit card is best for Swiggy?")
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/test_iteration3.py:50: in _send_webhook
+    "chat": {"id": int(TELEGRAM_CHAT_ID)},
+                   ^^^^^^^^^^^^^^^^^^^^^
+E   ValueError: invalid literal for int() with base 10: '"805540771"'</failure></testcase><testcase classname="backend.tests.test_iteration3.TestWebhookImmediate" name="test_webhook_returns_ok_for_unknown_chat_id" time="0.053" /><testcase classname="backend.tests.test_iteration3.TestWebhookImmediate" name="test_server_responsive_during_chat" time="0.000"><failure message="ValueError: invalid literal for int() with base 10: '&quot;805540771&quot;'">backend/tests/test_iteration3.py:90: in test_server_responsive_during_chat
+    self._send_webhook(session, "Explain UPI cashback offers 2026")
+backend/tests/test_iteration3.py:50: in _send_webhook
+    "chat": {"id": int(TELEGRAM_CHAT_ID)},
+                   ^^^^^^^^^^^^^^^^^^^^^
+E   ValueError: invalid literal for int() with base 10: '"805540771"'</failure></testcase><testcase classname="backend.tests.test_iteration3.TestSearchCommand" name="test_search_command_returns_ok" time="0.000"><failure message="ValueError: invalid literal for int() with base 10: '&quot;805540771&quot;'">backend/tests/test_iteration3.py:113: in test_search_command_returns_ok
+    resp = self._send_webhook(session, "/search cashback")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/test_iteration3.py:106: in _send_webhook
+    "chat": {"id": int(TELEGRAM_CHAT_ID)},
+                   ^^^^^^^^^^^^^^^^^^^^^
+E   ValueError: invalid literal for int() with base 10: '"805540771"'</failure></testcase><testcase classname="backend.tests.test_iteration3.TestSearchCommand" name="test_search_no_results_returns_ok" time="0.000"><failure message="ValueError: invalid literal for int() with base 10: '&quot;805540771&quot;'">backend/tests/test_iteration3.py:119: in test_search_no_results_returns_ok
+    resp = self._send_webhook(session, "/search xyz123notexist")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/test_iteration3.py:106: in _send_webhook
+    "chat": {"id": int(TELEGRAM_CHAT_ID)},
+                   ^^^^^^^^^^^^^^^^^^^^^
+E   ValueError: invalid literal for int() with base 10: '"805540771"'</failure></testcase><testcase classname="backend.tests.test_iteration3.TestSearchCommand" name="test_search_short_keyword_returns_ok" time="0.000"><failure message="ValueError: invalid literal for int() with base 10: '&quot;805540771&quot;'">backend/tests/test_iteration3.py:126: in test_search_short_keyword_returns_ok
+    resp = self._send_webhook(session, "/search a")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend/tests/test_iteration3.py:106: in _send_webhook
+    "chat": {"id": int(TELEGRAM_CHAT_ID)},
+                   ^^^^^^^^^^^^^^^^^^^^^
+E   ValueError: invalid literal for int() with base 10: '"805540771"'</failure></testcase><testcase classname="backend.tests.test_iteration3.TestHelpCommand" name="test_help_webhook_ok" time="0.000"><failure message="ValueError: invalid literal for int() with base 10: '&quot;805540771&quot;'">backend/tests/test_iteration3.py:141: in test_help_webhook_ok
+    "chat": {"id": int(TELEGRAM_CHAT_ID)},
+                   ^^^^^^^^^^^^^^^^^^^^^
+E   ValueError: invalid literal for int() with base 10: '"805540771"'</failure></testcase><testcase classname="backend.tests.test_iteration3.TestHelpTextContent" name="test_help_text_contains_search" time="0.000" /><testcase classname="backend.tests.test_iteration3.TestFinanceFilter" name="test_interest_rate_not_in_keywords" time="0.000" /><testcase classname="backend.tests.test_iteration3.TestFinanceFilter" name="test_specific_upi_keywords_present" time="0.000" /><testcase classname="backend.tests.test_iteration3.TestMongoIndexes" name="test_mongodb_indexes" time="0.001"><failure message="pymongo.errors.InvalidURI: Invalid URI scheme: URI must begin with 'mongodb://' or 'mongodb+srv://'">backend/tests/test_iteration3.py:221: in test_mongodb_indexes
+    indexes = asyncio.get_event_loop().run_until_complete(_check())
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/asyncio/base_events.py:654: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+backend/tests/test_iteration3.py:215: in _check
+    client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URL)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/motor/core.py:148: in __init__
+    delegate = self.__delegate_class__(*args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/pymongo/mongo_client.py:766: in __init__
+    res = uri_parser.parse_uri(
+/root/.venv/lib/python3.11/site-packages/pymongo/uri_parser.py:496: in parse_uri
+    raise InvalidURI(f"Invalid URI scheme: URI must begin with '{SCHEME}' or '{SRV_SCHEME}'")
+E   pymongo.errors.InvalidURI: Invalid URI scheme: URI must begin with 'mongodb://' or 'mongodb+srv://'</failure></testcase><testcase classname="backend.tests.test_iteration3.TestChatbotAsyncCode" name="test_chatbot_uses_create_task" time="0.000" /><testcase classname="backend.tests.test_iteration3.TestChatbotAsyncCode" name="test_chatbot_no_ddgs_import" time="0.000" /><testcase classname="backend.tests.test_iteration3.TestChatbotAsyncCode" name="test_chatbot_uses_httpx" time="0.000" /></testsuite></testsuites>
