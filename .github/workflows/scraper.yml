@@ -18,19 +18,52 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      - name: Wake up server (health check with retries)
+        run: |
+          echo "Warming up server at $(date -u '+%Y-%m-%d %H:%M UTC')"
+          MAX_ATTEMPTS=6
+          WAIT_SEC=10
+          for i in $(seq 1 $MAX_ATTEMPTS); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+              --max-time 15 \
+              "${{ secrets.AGENT_URL }}/api/" || echo "000")
+            echo "Attempt $i: HTTP $STATUS"
+            if [ "$STATUS" = "200" ]; then
+              echo "Server is up!"
+              break
+            fi
+            if [ "$i" -eq "$MAX_ATTEMPTS" ]; then
+              echo "ERROR: Server did not respond after $MAX_ATTEMPTS attempts"
+              exit 1
+            fi
+            echo "Waiting ${WAIT_SEC}s before retry..."
+            sleep $WAIT_SEC
+          done
+
       - name: Trigger News Agent Run
         run: |
           echo "Triggering agent run at $(date -u '+%Y-%m-%d %H:%M UTC')"
-          HTTP_STATUS=$(curl -s -o /tmp/response.json -w "%{http_code}" \
-            -X POST \
-            -H "Content-Type: application/json" \
-            -H "Authorization: Bearer ${{ secrets.AGENT_SECRET_KEY }}" \
-            "${{ secrets.AGENT_URL }}/api/agent/trigger")
-          
-          echo "Response: $(cat /tmp/response.json)"
-          
-          if [ "$HTTP_STATUS" -ne 200 ]; then
-            echo "ERROR: Agent trigger failed with HTTP $HTTP_STATUS"
-            exit 1
-          fi
-          echo "Agent triggered successfully"
+          MAX_ATTEMPTS=3
+          for i in $(seq 1 $MAX_ATTEMPTS); do
+            HTTP_STATUS=$(curl -s -o /tmp/response.json -w "%{http_code}" \
+              --max-time 30 \
+              -X POST \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer ${{ secrets.AGENT_SECRET_KEY }}" \
+              "${{ secrets.AGENT_URL }}/api/agent/trigger")
+
+            echo "Attempt $i: HTTP $HTTP_STATUS — $(cat /tmp/response.json)"
+
+            if [ "$HTTP_STATUS" -eq 200 ]; then
+              echo "Agent triggered successfully!"
+              exit 0
+            fi
+
+            if [ "$i" -lt "$MAX_ATTEMPTS" ]; then
+              echo "Retrying in 10s..."
+              sleep 10
+            fi
+          done
+
+          echo "ERROR: Agent trigger failed after $MAX_ATTEMPTS attempts (last HTTP $HTTP_STATUS)"
+          exit 1
