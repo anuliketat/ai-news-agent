@@ -112,28 +112,52 @@ def _build_queries(user_message: str, intent: str) -> List[str]:
 
 
 # ---------------------------------------------------------------------------
-# Web search — parallel multi-query with deduplication
+# Web search — direct async DDG (no primp/GIL blocking)
 # ---------------------------------------------------------------------------
 
-def _ddg_search_sync(query: str, max_results: int = 5) -> List[Dict]:
+async def _search_one(query: str, max_results: int = 5) -> List[Dict]:
+    """Async DDG HTML search using httpx — no GIL-blocking primp dependency."""
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/121.0 Safari/537.36"
+        ),
+        "Accept": "text/html,application/xhtml+xml",
+        "Content-Type": "application/x-www-form-urlencoded",
+    }
     try:
-        from ddgs import DDGS
-        with DDGS(timeout=12) as ddgs:
-            return list(ddgs.text(query, max_results=max_results, region="in-en"))
+        from bs4 import BeautifulSoup
+        from urllib.parse import unquote, parse_qs, urlparse
+        async with httpx.AsyncClient(timeout=12.0, follow_redirects=True) as client:
+            resp = await client.post(
+                "https://html.duckduckgo.com/html/",
+                data={"q": query, "kl": "in-en"},
+                headers=headers,
+            )
+        if resp.status_code != 200:
+            return []
+        soup = BeautifulSoup(resp.text, "html.parser")
+        results = []
+        for el in soup.select(".result"):
+            a = el.select_one(".result__title a")
+            snippet = el.select_one(".result__snippet")
+            if not a:
+                continue
+            title = a.get_text(strip=True)
+            href = a.get("href", "")
+            # Unwrap DDG redirect (/l/?uddg=<actual-url>)
+            if "uddg=" in href:
+                qs = parse_qs(urlparse(href).query)
+                href = unquote(qs.get("uddg", [href])[0])
+            if not href.startswith("http"):
+                continue
+            body = snippet.get_text(strip=True) if snippet else ""
+            results.append({"title": title, "href": href, "body": body})
+            if len(results) >= max_results:
+                break
+        return results
     except Exception as e:
         logger.warning(f"DDG search error for '{query[:60]}': {e}")
-        return []
-
-
-async def _search_one(query: str, max_results: int = 5) -> List[Dict]:
-    loop = asyncio.get_running_loop()
-    try:
-        return await asyncio.wait_for(
-            loop.run_in_executor(None, _ddg_search_sync, query, max_results),
-            timeout=20.0,
-        )
-    except asyncio.TimeoutError:
-        logger.warning(f"DDG search timed out: {query[:60]}")
         return []
 
 
