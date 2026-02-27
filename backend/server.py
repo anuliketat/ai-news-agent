@@ -205,7 +205,9 @@ async def telegram_webhook(request: Request):
         await _send_help(chat_id)
     else:
         # Everything else → conversational chatbot with web search
-        await _handle_chat_message(chat_id, text)
+        # Run as background task so webhook returns immediately (Telegram's 30s limit)
+        import asyncio as _asyncio
+        _asyncio.create_task(_handle_chat_message(chat_id, text))
 
     return {"ok": True}
 
