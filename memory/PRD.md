@@ -74,6 +74,19 @@ END
 - `GET /api/agent/articles?limit=N&category=X` — Fetched articles
 - `POST /api/telegram/webhook` — Telegram webhook handler
 
+## Telegram Commands
+- `/refresh` — On-demand agent run
+- `/status` — Last run stats + pending digest
+- `/history` — Last 7 digest runs
+- `/top` — Top 5 credible articles from latest digest
+- `/search <keyword>` — Full-text search across stored articles (text index + regex fallback)
+- `/clear` — Clear conversation history
+- `/help` — All commands
+- `YES/NO` — Approve/reject pending digest
+- `details N` — Full content of item N
+- `feedback N text` — User feedback on item N
+- Free-form chat — Conversational AI with async DDG web search + Llama 3.3
+
 ## GitHub Actions Setup (for scheduling)
 1. Add GitHub Secrets:
    - `AGENT_URL` = `https://credible-news-agent.preview.emergentagent.com`
