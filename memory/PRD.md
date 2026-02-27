@@ -54,17 +54,21 @@ END
 - [x] Reasoning (1 sentence)
 - [x] Cross-reference count
 
-### User Enhancement Features (Feb 26, 2026)
-- [x] **UPI/Credit Card Focus**: Strict keyword filtering for finance articles, only keeping banking/payment relevant news. 24 irrelevant articles filtered per run.
-- [x] **Article Summaries**: LLM generates 2-3 sentence summary (rule-based extraction fallback). Shown as 📝 in digest.
-- [x] **Auto-Translation**: langdetect + deep_translator; non-English articles (Hindi/Marathi/Telugu PIB articles etc.) auto-translated. [Auto-translated] tag shown in digest.
-- [x] **UPI/CC Priority Boost**: Credit card/UPI articles sorted higher in digest (up to +30 score boost)
-- [x] **Message Splitting**: Digest split at paragraph boundaries ≤3800 chars (handles Telegram 4096 limit)
-- [x] **/refresh command**: Triggers on-demand agent run from Telegram; shows "🔄 Refreshing..." ack, guards against duplicate concurrent runs
-- [x] **/status command**: Shows last run stats (fetched/verified/actionable/translated), pending digest status, total DB articles
-- [x] **Bot command menu**: /refresh, /status, /help registered in Telegram's native command menu
-- [x] **/history command**: Lists last 7 digest runs — date (IST), item count, verified count, status icon (✅sent/📬pending/🚫rejected)
-- [x] **/top command**: Re-sends top 5 most credible articles from latest digest with full summary + why_it_matters
+### User Enhancement Features (Feb 26–27, 2026)
+- [x] **UPI/Credit Card Focus**: Strict keyword filtering for finance articles. Removed broad `"interest rate"` term; added specific `"fd interest"`, `"savings rate"`, `"contactless payment"`, `"spend offer"`, etc.
+- [x] **Article Summaries**: LLM generates 2-3 sentence summary
+- [x] **Auto-Translation**: langdetect + deep_translator for non-English articles
+- [x] **UPI/CC Priority Boost**: Credit card/UPI articles sorted higher
+- [x] **Message Splitting**: Digest split ≤3800 chars
+- [x] **/refresh command**: On-demand agent run
+- [x] **/status command**: Run stats + DB info
+- [x] **/history command**: Last 7 digest runs
+- [x] **/top command**: Top 5 credible articles
+- [x] **/search command**: Full-text article search (MongoDB text index + regex fallback)
+- [x] **Conversational chatbot**: GIL-safe async DDG search (httpx, no primp) + Llama 3.3-70B, background task (non-blocking webhook)
+- [x] **MongoDB TTL index**: Auto-expire articles after 30 days
+- [x] **MongoDB text index**: Weighted index on title/content/summary for /search
+- [x] **Bot command menu**: All 7 commands registered in Telegram native menu
 
 ## API Endpoints
 - `POST /api/agent/trigger` — Trigger agent run (requires Bearer auth)
