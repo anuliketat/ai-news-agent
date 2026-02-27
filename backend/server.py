@@ -474,6 +474,74 @@ async def _handle_top(chat_id: str):
     await send_message(chat_id, "\n\n".join(lines))
 
 
+async def _handle_search(chat_id: str, keyword: str):
+    """Full-text search across stored articles."""
+    from agent.telegram_handler import send_message
+
+    keyword = keyword.strip()
+    if len(keyword) < 2:
+        await send_message(
+            chat_id,
+            "Usage: <b>/search keyword</b>\nExample: <code>/search HDFC cashback</code>"
+        )
+        return
+
+    try:
+        # Use MongoDB text index (created at startup); fallback to regex if no text index
+        try:
+            articles = await db.articles.find(
+                {"$text": {"$search": keyword}},
+                {"_id": 0, "title": 1, "url": 1, "summary": 1, "credibility_score": 1,
+                 "category": 1, "validation_status": 1, "source_domain": 1, "fetched_at": 1,
+                 "score": {"$meta": "textScore"}},
+            ).sort([("score", {"$meta": "textScore"}), ("credibility_score", -1)]).limit(5).to_list(5)
+        except Exception:
+            # Fallback: regex search
+            regex = {"$regex": keyword, "$options": "i"}
+            articles = await db.articles.find(
+                {"$or": [{"title": regex}, {"summary": regex}]},
+                {"_id": 0, "title": 1, "url": 1, "summary": 1,
+                 "credibility_score": 1, "category": 1,
+                 "validation_status": 1, "source_domain": 1, "fetched_at": 1},
+            ).sort("credibility_score", -1).limit(5).to_list(5)
+    except Exception as e:
+        logger.error(f"Search error: {e}")
+        await send_message(chat_id, "Search failed. Please try again.")
+        return
+
+    if not articles:
+        await send_message(
+            chat_id,
+            f'No results found for "<b>{keyword}</b>".\n\n'
+            f"<i>Try /refresh to fetch latest news, then search again.</i>"
+        )
+        return
+
+    from agent.nodes.digest import STATUS_EMOJI, STATUS_LABEL
+    CATEGORY_EMOJI = {"finance": "💳", "tech": "🤖", "govt": "🏛"}
+
+    lines = [f'<b>Search: "{keyword}"</b> — {len(articles)} result(s)\n']
+    for i, art in enumerate(articles, 1):
+        status = art.get("validation_status", "unverified")
+        score = art.get("credibility_score", 0)
+        cat = art.get("category", "tech")
+        title = art.get("title", "Untitled")
+        summary = art.get("summary", "").strip()
+        url = art.get("url", "")
+        domain = art.get("source_domain", "")
+        link = f'<a href="{url}">Read</a>' if url else ""
+        summary_line = f"\n   <i>{summary[:160]}</i>" if summary else ""
+
+        lines.append(
+            f"{i}. {CATEGORY_EMOJI.get(cat, '📰')} <b>{title}</b>\n"
+            f"   {STATUS_EMOJI.get(status, '⚠️')} {STATUS_LABEL.get(status, 'Unverified')} · {score}/100 · {domain}"
+            f"{summary_line}\n"
+            f"   🔗 {link}"
+        )
+
+    await send_message(chat_id, "\n\n".join(lines))
+
+
 async def _handle_clear(chat_id: str):
     """Clear the conversation history for this chat."""
     from agent.telegram_handler import send_message
