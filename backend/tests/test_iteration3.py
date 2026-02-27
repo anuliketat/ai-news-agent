@@ -6,10 +6,10 @@ import requests
 import asyncio
 import motor.motor_asyncio
 
-BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/")
-MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
-DB_NAME = os.environ.get("DB_NAME", "news_agent_db")
-TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "805540771")
+BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/").strip('"')
+MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017").strip('"')
+DB_NAME = os.environ.get("DB_NAME", "news_agent_db").strip('"')
+TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "805540771").strip('"')
 
 
 @pytest.fixture(scope="module")
