@@ -20,15 +20,25 @@ USER_AGENT = (
 
 # Finance keywords — strict UPI/CC/banking focus to filter out stock/corporate news
 _FINANCE_RELEVANT_KW = [
+    # Payments & UPI
     "upi", "credit card", "debit card", "cashback", "reward points", "reward program",
+    "contactless payment", "tap to pay", "nfc payment", "digital payment",
+    # Banks & issuers
     "hdfc", "icici bank", "axis bank", "amex", "american express", "sbi card", "rupay",
+    "kotak mahindra", "indusind bank", "yes bank", "idfc first",
+    # Payment apps
     "paytm", "amazon pay", "gpay", "phonepe", "bhim", "google pay",
-    "rbi", "repo rate", "neft", "imps", "bank offer", "banking scheme",
-    "interest rate", "emi offer", "loan rate", "fd rate", "fixed deposit",
+    # Banking products
+    "rbi", "repo rate", "neft", "imps", "rtgs", "bank offer", "banking scheme",
+    "emi offer", "loan rate", "fd rate", "fixed deposit", "savings account",
+    "fd interest", "savings rate", "rd rate", "recurring deposit",
+    # Card-specific
     "card launch", "card benefit", "lounge access", "milestone benefit",
-    "annual fee", "credit score", "credit limit", "card reward",
+    "annual fee", "credit score", "credit limit", "card reward", "welcome bonus",
+    "spend offer", "fuel surcharge", "forex markup",
+    # Tax & govt finance
     "tax slab", "income tax", "itr", "gst rate", "subsidy", "govt scheme",
-    "insurance premium", "lic", "national pension",
+    "insurance premium", "lic", "national pension", "epf", "ppf",
 ]
 
 
