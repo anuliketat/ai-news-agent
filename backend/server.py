@@ -583,6 +583,8 @@ async def _send_help(chat_id: str):
         "⭐ <b>/top</b> — Today's top 5 most credible articles\n"
         "📜 <b>/history</b> — Browse last 7 digest runs\n"
         "📊 <b>/status</b> — Last run stats &amp; pending digest\n"
+        "🔍 <b>/search keyword</b> — Search stored articles\n"
+        "   <i>Example: /search HDFC cashback</i>\n"
         "🗑 <b>/clear</b> — Clear chat history (start fresh)\n\n"
         "📬 <b>Digest approval:</b>\n"
         "  • <b>YES</b> — Receive the full digest\n"
