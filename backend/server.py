@@ -70,6 +70,20 @@ def _split_telegram_message(text: str) -> list:
 # ---------------------------------------------------------------------------
 @app.on_event("startup")
 async def startup():
+    # Ensure MongoDB indexes
+    try:
+        # TTL index: auto-delete articles older than 30 days
+        await db.articles.create_index("fetched_at", expireAfterSeconds=2592000, name="ttl_fetched_at")
+        # Text index for /search command
+        await db.articles.create_index(
+            [("title", "text"), ("content", "text"), ("summary", "text")],
+            name="text_search_idx",
+            weights={"title": 10, "summary": 5, "content": 1},
+        )
+        logger.info("MongoDB indexes ensured")
+    except Exception as e:
+        logger.warning(f"Index creation warning (may already exist): {e}")
+
     if TELEGRAM_BOT_TOKEN and BACKEND_URL:
         from agent.telegram_handler import setup_webhook
         webhook_url = f"{BACKEND_URL}/api/telegram/webhook"
@@ -87,6 +101,7 @@ async def startup():
                     {"command": "top",     "description": "Today's top 5 credible articles"},
                     {"command": "history", "description": "Browse last 7 digest runs"},
                     {"command": "status",  "description": "Last run stats"},
+                    {"command": "search",  "description": "Search articles: /search hdfc cashback"},
                     {"command": "clear",   "description": "Clear chat history, start fresh"},
                     {"command": "help",    "description": "Show all commands"},
                 ]}
