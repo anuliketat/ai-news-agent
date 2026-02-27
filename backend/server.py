@@ -194,6 +194,9 @@ async def telegram_webhook(request: Request):
         await _handle_top(chat_id)
     elif text_lower in ("/clear", "clear"):
         await _handle_clear(chat_id)
+    elif text_lower.startswith("/search ") or text_lower.startswith("search "):
+        keyword = text.split(" ", 1)[1].strip() if " " in text else ""
+        await _handle_search(chat_id, keyword)
     elif text_lower.startswith("details "):
         await _handle_details(chat_id, text)
     elif text_lower.startswith("feedback "):
